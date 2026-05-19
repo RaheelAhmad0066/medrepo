@@ -10,6 +10,7 @@ import 'package:medrep_pro/core/services/connectivity_service.dart';
 import 'package:medrep_pro/core/database/app_database.dart';
 import 'package:medrep_pro/core/services/sync/sync_engine.dart';
 import 'package:medrep_pro/features/auth/domain/repositories/user_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:medrep_pro/features/auth/data/repositories/user_repository_impl.dart';
 import 'package:medrep_pro/core/services/biometric_service.dart';
 import 'package:medrep_pro/core/di/clerk_auth_provider.dart';
@@ -21,6 +22,11 @@ import 'package:medrep_pro/features/auth/domain/usecases/verify_otp_usecase.dart
 /// Provides the BiometricService.
 final biometricServiceProvider = Provider<BiometricService>((ref) {
   return BiometricService();
+});
+
+/// Provides the Supabase Client.
+final supabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return Supabase.instance.client;
 });
 
 /// Provides the Sentry/Logger instance for application diagnostics.

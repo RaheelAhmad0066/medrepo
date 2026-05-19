@@ -1,15 +1,16 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medrep_pro/core/di/dependency_providers.dart';
 import 'package:medrep_pro/core/services/secure_storage_service.dart';
+import 'package:medrep_pro/features/auth/domain/repositories/auth_repository.dart';
+import 'package:medrep_pro/features/auth/domain/entities/user.dart';
+import 'package:medrep_pro/core/network/api_result.dart';
 import 'package:medrep_pro/main.dart';
 
 class FakeSecureStorageService implements SecureStorageService {
   final Map<String, String> _storage = {};
-
-  @override
-  dynamic get storage => null;
 
   @override
   Future<void> saveAccessToken(String token) async => _storage['access_token'] = token;
@@ -45,6 +46,58 @@ class FakeSecureStorageService implements SecureStorageService {
   Future<void> clearAll() async => _storage.clear();
 }
 
+class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<ApiResult<User>> authenticateWithBiometrics() async {
+    return const Success(User(
+      id: '123',
+      email: 'test@medrep.com',
+      name: 'Test User',
+      role: 'medical_rep',
+      tenantId: '1',
+      territoryIds: [],
+    ));
+  }
+
+  @override
+  Future<ApiResult<User?>> checkAutoLogin() async {
+    return const Success(null);
+  }
+
+  @override
+  Future<ApiResult<String?>> getSessionToken() async {
+    return const Success(null);
+  }
+
+  @override
+  Future<bool> isBiometricEnrolled() async => false;
+
+  @override
+  Future<ApiResult<void>> logout() async {
+    return const Success(null);
+  }
+
+  @override
+  Future<ApiResult<void>> sendOtp(String emailOrPhone, {required bool isPhone}) async {
+    return const Success(null);
+  }
+
+  @override
+  Future<void> setBiometricEnrolled({required bool enrolled}) async {}
+
+  @override
+  Future<ApiResult<User>> verifyOtp(String emailOrPhone, String otp, {required bool isPhone}) async {
+    return const Success(User(
+      id: '123',
+      email: 'test@medrep.com',
+      name: 'Test User',
+      role: 'medical_rep',
+      tenantId: '1',
+      territoryIds: [],
+    ));
+  }
+}
+
 void main() {
   testWidgets('App starts and redirects to login layout', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -55,6 +108,7 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(sharedPrefs),
           secureStorageProvider.overrideWithValue(FakeSecureStorageService()),
+          authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
         ],
         child: const MedRepProApp(),
       ),
@@ -63,7 +117,8 @@ void main() {
     // Let the GoRouter redirect resolve
     await tester.pumpAndSettle();
 
-    // Verify it loads the login page boilerplate
-    expect(find.textContaining('Login Screen'), findsOneWidget);
+    // Verify it loads the login page
+    expect(find.textContaining('MedRep Pro'), findsWidgets);
+    expect(find.byType(TextFormField), findsWidgets);
   });
 }

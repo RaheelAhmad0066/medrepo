@@ -46,6 +46,7 @@ class UserRepositoryImpl implements UserRepository {
         name: userMetadata['full_name'] as String? ?? 'Anonymous',
         role: userMetadata['role'] as String? ?? 'sales_rep',
         tenantId: userMetadata['tenant_id'] as String? ?? 'default',
+        territoryIds: const [],
       );
 
       // Save credential states to Secure Storage
@@ -106,6 +107,7 @@ class UserRepositoryImpl implements UserRepository {
         name: userMetadata['full_name'] as String? ?? 'Anonymous',
         role: userMetadata['role'] as String? ?? 'sales_rep',
         tenantId: userMetadata['tenant_id'] as String? ?? 'default',
+        territoryIds: const [],
       );
 
       return Success(user);

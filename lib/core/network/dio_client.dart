@@ -14,6 +14,7 @@ class DioClient {
   DioClient({
     required SecureStorageService secureStorage,
     required Logger logger,
+    ClerkTokenProvider? clerkTokenProvider,
     Dio? dio,
   }) : _dio = dio ?? Dio() {
     _dio
@@ -27,7 +28,7 @@ class DioClient {
       };
 
     _dio.interceptors.addAll([
-      AuthInterceptor(secureStorage, _dio),
+      AuthInterceptor(secureStorage, _dio, clerkTokenProvider),
       LoggingInterceptor(logger),
     ]);
   }

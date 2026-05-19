@@ -11,6 +11,17 @@ import 'package:medrep_pro/core/database/app_database.dart';
 import 'package:medrep_pro/core/services/sync/sync_engine.dart';
 import 'package:medrep_pro/features/auth/domain/repositories/user_repository.dart';
 import 'package:medrep_pro/features/auth/data/repositories/user_repository_impl.dart';
+import 'package:medrep_pro/core/services/biometric_service.dart';
+import 'package:medrep_pro/core/di/clerk_auth_provider.dart';
+import 'package:medrep_pro/features/auth/domain/repositories/auth_repository.dart';
+import 'package:medrep_pro/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:medrep_pro/features/auth/domain/usecases/send_otp_usecase.dart';
+import 'package:medrep_pro/features/auth/domain/usecases/verify_otp_usecase.dart';
+
+/// Provides the BiometricService.
+final biometricServiceProvider = Provider<BiometricService>((ref) {
+  return BiometricService();
+});
 
 /// Provides the Sentry/Logger instance for application diagnostics.
 final loggerProvider = Provider<Logger>((ref) {
@@ -52,7 +63,20 @@ final connectivityProvider = Provider<ConnectivityService>((ref) {
 final dioClientProvider = Provider<DioClient>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
   final logger = ref.watch(loggerProvider);
-  return DioClient(secureStorage: secureStorage, logger: logger);
+  return DioClient(
+    secureStorage: secureStorage,
+    logger: logger,
+    clerkTokenProvider: () async {
+      try {
+        final clerkAuth = ref.read(clerkAuthProvider);
+        if (clerkAuth.isSignedIn) {
+          final token = await clerkAuth.sessionToken();
+          return token.jwt;
+        }
+      } catch (_) {}
+      return null;
+    },
+  );
 });
 
 /// Provides the local SQLite Drift database.
@@ -93,4 +117,28 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
     secureStorage: secureStorage,
     db: db,
   );
+});
+
+/// Provides the AuthRepository implementation.
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final clerkAuth = ref.watch(clerkAuthProvider);
+  final secureStorage = ref.watch(secureStorageProvider);
+  final biometricService = ref.watch(biometricServiceProvider);
+  return AuthRepositoryImpl(
+    clerkAuth: clerkAuth,
+    secureStorage: secureStorage,
+    biometricService: biometricService,
+  );
+});
+
+/// Provides the SendOtpUseCase.
+final sendOtpUseCaseProvider = Provider<SendOtpUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return SendOtpUseCase(repository);
+});
+
+/// Provides the VerifyOtpUseCase.
+final verifyOtpUseCaseProvider = Provider<VerifyOtpUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return VerifyOtpUseCase(repository);
 });

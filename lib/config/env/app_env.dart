@@ -12,6 +12,7 @@ class AppEnv {
   static late String supabaseAnonKey;
   static late String apiBaseUrl;
   static late String sentryDsn;
+  static late String clerkPublishableKey;
   static late bool enableAiAssistant;
   static late bool enableAnalytics;
   static late int syncIntervalMinutes;
@@ -31,14 +32,18 @@ class AppEnv {
   static void _initDev() {
     supabaseUrl = const String.fromEnvironment(
       'SUPABASE_URL',
-      defaultValue: 'https://your-dev-project.supabase.co',
+      defaultValue: 'https://dnbutnfoacrfnjhhwyag.supabase.co',
     );
     supabaseAnonKey = const String.fromEnvironment(
       'SUPABASE_ANON_KEY',
-      defaultValue: 'your-dev-anon-key',
+      defaultValue: 'sb_publishable_wlsWRRKVcaJ7oI70MTvnOg_1iANroz-',
     );
-    apiBaseUrl = 'https://your-dev-project.supabase.co/functions/v1';
+    apiBaseUrl = 'https://dnbutnfoacrfnjhhwyag.supabase.co/functions/v1';
     sentryDsn = '';
+    clerkPublishableKey = const String.fromEnvironment(
+      'CLERK_PUBLISHABLE_KEY',
+      defaultValue: 'pk_test_ZGl2ZXJzZS1zd2FuLTYxLmNsZXJrLmFjY291bnRzLmRldiQ',
+    );
     enableAiAssistant = true;
     enableAnalytics = false;
     syncIntervalMinutes = 5;
@@ -49,6 +54,7 @@ class AppEnv {
     supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY');
     apiBaseUrl = 'https://your-staging-project.supabase.co/functions/v1';
     sentryDsn = const String.fromEnvironment('SENTRY_DSN');
+    clerkPublishableKey = const String.fromEnvironment('CLERK_PUBLISHABLE_KEY');
     enableAiAssistant = true;
     enableAnalytics = true;
     syncIntervalMinutes = 10;
@@ -59,6 +65,7 @@ class AppEnv {
     supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY');
     apiBaseUrl = 'https://your-prod-project.supabase.co/functions/v1';
     sentryDsn = const String.fromEnvironment('SENTRY_DSN');
+    clerkPublishableKey = const String.fromEnvironment('CLERK_PUBLISHABLE_KEY');
     enableAiAssistant = true;
     enableAnalytics = true;
     syncIntervalMinutes = 15;

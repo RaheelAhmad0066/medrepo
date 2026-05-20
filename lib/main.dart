@@ -10,11 +10,23 @@ import 'package:medrep_pro/core/di/theme_provider.dart';
 import 'package:medrep_pro/core/router/app_router.dart';
 import 'package:medrep_pro/core/services/session_timer_service.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize App Configuration Environment (Defaulting to Dev flavor)
   AppEnv.init(AppEnvironment.development);
+
+  try {
+    // Initialize Supabase
+    await Supabase.initialize(
+      url: AppEnv.supabaseUrl,
+      anonKey: AppEnv.supabaseAnonKey,
+    );
+  } catch (e) {
+    debugPrint('Supabase initialization failed: $e');
+  }
 
   // Pre-initialize SharedPreferences for Riverpod provider override
   final sharedPrefs = await SharedPreferences.getInstance();
@@ -28,7 +40,11 @@ void main() async {
       ),
     ),
   );
-  await auth.initialize();
+  try {
+    await auth.initialize();
+  } catch (e) {
+    debugPrint('Clerk initialization failed: $e');
+  }
 
   runApp(
     ProviderScope(

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:clerk_auth/clerk_auth.dart' as clerk;
+import 'package:flutter/foundation.dart';
 import 'package:medrep_pro/core/error/failures.dart';
 import 'package:medrep_pro/core/network/api_result.dart';
 import 'package:medrep_pro/core/services/secure_storage_service.dart';
@@ -23,31 +25,141 @@ class AuthRepositoryImpl implements AuthRepository {
         _biometricService = biometricService;
 
   @override
-  Future<ApiResult<void>> sendOtp(String emailOrPhone, {required bool isPhone}) async {
+  Future<ApiResult<void>> sendOtp(String emailOrPhone,
+      {required bool isPhone}) async {
     try {
-      final strategy = isPhone ? clerk.Strategy.phoneCode : clerk.Strategy.emailCode;
+      final strategy =
+          isPhone ? clerk.Strategy.phoneCode : clerk.Strategy.emailCode;
       await _clerkAuth.attemptSignIn(
         strategy: strategy,
         identifier: emailOrPhone,
       );
       return const Success(null);
-    } catch (e) {
+    } catch (e, stack) {
+      final errorMsg = e.toString();
+      if (errorMsg.contains("Couldn't find your account") ||
+          errorMsg.contains("does not exist") ||
+          errorMsg.contains("not found")) {
+        debugPrint(
+            'Account not found for sign-in. Attempting sign-up fallback for $emailOrPhone...');
+        try {
+          final strategy =
+              isPhone ? clerk.Strategy.phoneCode : clerk.Strategy.emailCode;
+          if (isPhone) {
+            await _clerkAuth.attemptSignUp(
+              strategy: strategy,
+              phoneNumber: emailOrPhone,
+            );
+          } else {
+            await _clerkAuth.attemptSignUp(
+              strategy: strategy,
+              emailAddress: emailOrPhone,
+            );
+          }
+          return const Success(null);
+        } catch (signUpError, signUpStack) {
+          debugPrint(
+              'Clerk attemptSignUp Exception: $signUpError\n$signUpStack');
+          return FailureResult(AuthFailure(message: signUpError.toString()));
+        }
+      }
+      debugPrint('Clerk sendOtp Exception: $e\n$stack');
       return FailureResult(AuthFailure(message: e.toString()));
     }
   }
 
   @override
-  Future<ApiResult<User>> verifyOtp(String emailOrPhone, String otp, {required bool isPhone}) async {
+  Future<ApiResult<User>> verifyOtp(String emailOrPhone, String otp,
+      {required bool isPhone}) async {
     try {
-      final strategy = isPhone ? clerk.Strategy.phoneCode : clerk.Strategy.emailCode;
-      await _clerkAuth.attemptSignIn(
-        strategy: strategy,
-        code: otp,
-      );
+      final strategy =
+          isPhone ? clerk.Strategy.phoneCode : clerk.Strategy.emailCode;
+      if (_clerkAuth.isSigningUp) {
+        await _clerkAuth.attemptSignUp(
+          strategy: strategy,
+          code: otp,
+        );
 
-      final clerkUser = _clerkAuth.client.user;
+        // If sign-up is not completed yet due to missing fields, automatically supply default ones
+        var signUp = _clerkAuth.client.signUp;
+        if (signUp != null && signUp.status != clerk.Status.complete) {
+          debugPrint('verifyOtp: SignUp status is ${signUp.status}. Missing fields: ${signUp.missingFields}');
+          String? firstName;
+          String? lastName;
+          bool? legalAccepted;
+          String? password;
+
+          if (signUp.missingFields.contains(clerk.Field.firstName)) {
+            firstName = 'User';
+          }
+          if (signUp.missingFields.contains(clerk.Field.lastName)) {
+            lastName = 'MedRep';
+          }
+          if (signUp.missingFields.contains(clerk.Field.legalAccepted)) {
+            legalAccepted = true;
+          }
+          if (signUp.missingFields.contains(clerk.Field.password)) {
+            password = 'MedRepProSecPass123!';
+          }
+
+          if (firstName != null || lastName != null || legalAccepted != null || password != null) {
+            debugPrint('verifyOtp: Automatically supplying missing fields: firstName=$firstName, lastName=$lastName, legalAccepted=$legalAccepted, password=$password');
+            await _clerkAuth.attemptSignUp(
+              firstName: firstName,
+              lastName: lastName,
+              legalAccepted: legalAccepted,
+              password: password,
+              passwordConfirmation: password,
+            );
+          }
+        }
+      } else {
+        await _clerkAuth.attemptSignIn(
+          strategy: strategy,
+          code: otp,
+        );
+      }
+
+      // Check if user is logged in
+      debugPrint('--- CLERK STATE DIAGNOSTICS ---');
+      debugPrint('clerkAuth.isSigningUp: ${_clerkAuth.isSigningUp}');
+      debugPrint('clerkAuth.isSigningIn: ${_clerkAuth.isSigningIn}');
+      debugPrint('clerkAuth.isSignedIn: ${_clerkAuth.isSignedIn}');
+      debugPrint(
+          'clerkAuth.client.sessions.length: ${_clerkAuth.client.sessions.length}');
+      debugPrint(
+          'clerkAuth.client.signUp.status: ${_clerkAuth.client.signUp?.status}');
+      debugPrint(
+          'clerkAuth.client.signUp.createdSessionId: ${_clerkAuth.client.signUp?.createdSessionId}');
+      debugPrint(
+          'clerkAuth.client.signUp.createdUserId: ${_clerkAuth.client.signUp?.createdUserId}');
+      try {
+        debugPrint(
+            'clerkAuth.client.toJson(): ${jsonEncode(_clerkAuth.client.toJson())}');
+      } catch (jsonErr) {
+        debugPrint('Failed to serialize client.toJson: $jsonErr');
+      }
+
+      var clerkUser = _clerkAuth.client.user;
       if (clerkUser == null) {
-        return const FailureResult(AuthFailure(message: 'Verification succeeded but no user session was found.'));
+        debugPrint(
+            'verifyOtp: client.user is null. Refreshing Clerk client...');
+        await _clerkAuth.refreshClient();
+        clerkUser = _clerkAuth.client.user;
+      }
+
+      if (clerkUser == null && _clerkAuth.client.sessions.isNotEmpty) {
+        debugPrint(
+            'verifyOtp: sessions list is not empty. Activating first session...');
+        await _clerkAuth.activate(_clerkAuth.client.sessions.first);
+        clerkUser = _clerkAuth.client.user;
+      }
+
+      if (clerkUser == null) {
+        debugPrint(
+            'verifyOtp: clerkUser is still null after activation attempts!');
+        return const FailureResult(AuthFailure(
+            message: 'Verification succeeded but no user session was found.'));
       }
 
       // Retrieve and persist session token in secure storage for HTTP Authorization headers
@@ -60,7 +172,8 @@ class AuthRepositoryImpl implements AuthRepository {
       await _secureStorage.saveTenantId(userDto.tenantId);
 
       return Success(userDto.toDomain());
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('Clerk verifyOtp Exception: $e\n$stack');
       return FailureResult(AuthFailure(message: e.toString()));
     }
   }
@@ -70,7 +183,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final enrolled = await isBiometricEnrolled();
       if (!enrolled) {
-        return const FailureResult(AuthFailure(message: 'Biometrics is not enrolled on this device.'));
+        return const FailureResult(
+            AuthFailure(message: 'Biometrics is not enrolled on this device.'));
       }
 
       final authenticated = await _biometricService.authenticate(
@@ -78,12 +192,14 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       if (!authenticated) {
-        return const FailureResult(AuthFailure(message: 'Biometric verification failed.'));
+        return const FailureResult(
+            AuthFailure(message: 'Biometric verification failed.'));
       }
 
       final cachedUserId = await _secureStorage.getUserId();
       if (cachedUserId == null) {
-        return const FailureResult(AuthFailure(message: 'No authenticated session found. Please log in again.'));
+        return const FailureResult(AuthFailure(
+            message: 'No authenticated session found. Please log in again.'));
       }
 
       if (_clerkAuth.isSignedIn) {
@@ -93,7 +209,8 @@ class AuthRepositoryImpl implements AuthRepository {
         final userDto = UserDto.fromJson(clerkUser.toJson());
         return Success(userDto.toDomain());
       } else {
-        return const FailureResult(AuthFailure(message: 'Clerk session has expired. Please log in with OTP.'));
+        return const FailureResult(AuthFailure(
+            message: 'Clerk session has expired. Please log in with OTP.'));
       }
     } catch (e) {
       return FailureResult(AuthFailure(message: e.toString()));

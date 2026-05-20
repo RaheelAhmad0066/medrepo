@@ -28,6 +28,14 @@ import 'package:medrep_pro/features/dcr/domain/entities/dcr.dart';
 import 'package:medrep_pro/features/dcr/presentation/views/dcr_list_view.dart';
 import 'package:medrep_pro/features/dcr/presentation/views/dcr_daily_form_view.dart';
 
+import 'package:medrep_pro/features/dashboard/presentation/widgets/achievement_meter.dart';
+import 'package:medrep_pro/features/dashboard/presentation/widgets/today_visit_checklist.dart';
+import 'package:medrep_pro/features/dashboard/presentation/widgets/week_on_week_chart.dart';
+import 'package:medrep_pro/features/dashboard/presentation/widgets/golm_indicator.dart';
+import 'package:medrep_pro/features/dashboard/presentation/widgets/pending_items_badge.dart';
+import 'package:medrep_pro/features/dashboard/presentation/widgets/quick_action_fab.dart';
+import 'package:medrep_pro/features/dashboard/presentation/widgets/rep_leaderboard.dart';
+
 /// Inactivity lock view displayed when the session times out.
 class LockScreenView extends ConsumerWidget {
   const LockScreenView({super.key});
@@ -120,6 +128,22 @@ class DashboardView extends ConsumerWidget {
       userName = userState.user.name;
     }
 
+    // Mock data for display
+    final List<Map<String, dynamic>> todayVisits = [
+      {'name': 'Dr. Asif Mahmood (Cardio)', 'type': 'doctor', 'time': '10:30 AM', 'area': 'Lahore Central'},
+      {'name': 'Time Medicos Pharmacy', 'type': 'chemist', 'time': '12:00 PM', 'area': 'Karachi South'},
+      {'name': 'Dr. Fatima Kidwai (Peds)', 'type': 'doctor', 'time': '03:15 PM', 'area': 'Karachi East'},
+    ];
+
+    final List<double> currentWeekSales = [450.0, 720.0, 310.0, 850.0, 500.0, 600.0];
+    final List<double> lastWeekSales = [400.0, 500.0, 600.0, 700.0, 450.0, 500.0];
+
+    final List<Map<String, dynamic>> leaderboardData = [
+      {'name': 'Salman Khan', 'territory': 'Lahore Central', 'sales': 8500.0},
+      {'name': 'Zainab Bibi', 'territory': 'Karachi South', 'sales': 6400.0},
+      {'name': 'Tariq Mahmood', 'territory': 'Multan City', 'sales': 4200.0},
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('MedRep Pro Dashboard'),
@@ -159,8 +183,56 @@ class DashboardView extends ConsumerWidget {
                   color: theme.colorScheme.primary,
                 ),
               ),
+              const SizedBox(height: 16),
+              
+              // 1. Pending items alerts
+              const PendingItemsBadge(
+                unsyncedCount: 3,
+                pendingReviewCount: 1,
+              ),
+              const SizedBox(height: 16),
+
+              // 2. Goal Achievement Meter
+              const AchievementMeter(
+                salesAmount: 3420.0,
+                targetAmount: 5000.0,
+              ),
+              const SizedBox(height: 16),
+
+              // 3. GOLM Chip Indicators
+              const GOLMIndicator(
+                mtdSales: 3420.0,
+                targetSales: 5000.0,
+                outstandingBalance: 1250.0,
+                creditLimit: 10000.0,
+              ),
+              const SizedBox(height: 16),
+
+              // 4. Today's Visit Schedule Checklist
+              TodayVisitChecklist(
+                todayVisits: todayVisits,
+              ),
+              const SizedBox(height: 16),
+
+              // 5. Week-on-Week Growth bar chart
+              WeekOnWeekChart(
+                currentWeekSales: currentWeekSales,
+                lastWeekSales: lastWeekSales,
+              ),
+              const SizedBox(height: 16),
+
+              // 6. Medical Reps Leaderboard rankings
+              RepLeaderboard(
+                leaderboardData: leaderboardData,
+              ),
               const SizedBox(height: 24),
-              // Dynamic stats grid
+
+              // Quick Access Hub
+              Text(
+                'Navigation Shortcuts',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -218,10 +290,12 @@ class DashboardView extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 60), // Extra space to scroll past FAB
             ],
           ),
         ),
       ),
+      floatingActionButton: const QuickActionFAB(),
     );
   }
 

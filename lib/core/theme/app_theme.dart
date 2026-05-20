@@ -19,6 +19,20 @@ class AppTheme {
   static const Color darkTextPrimary = Color(0xFFF8FAFC); // Slate 50
   static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
 
+  // Fallback aliases for direct access
+  static const Color primaryColor = lightPrimary;
+  static const Color secondaryColor = lightSecondary;
+  static const Color backgroundColor = lightBackground;
+  static const Color surfaceColor = lightSurface;
+  static const Color textSecondary = lightTextSecondary;
+  static const Color successColor = Color(0xFF10B981);
+  static const Color borderColor = Color(0xFFE2E8F0);
+
+  static const TextStyle bodySmall = TextStyle(fontSize: 12, color: lightTextSecondary);
+  static const TextStyle bodyMedium = TextStyle(fontSize: 14, color: lightTextPrimary);
+  static const TextStyle titleSmall = TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: lightTextPrimary);
+  static const TextStyle titleMedium = TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: lightTextPrimary);
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,

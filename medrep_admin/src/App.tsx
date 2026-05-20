@@ -39,6 +39,7 @@ export default function App() {
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [territoryModalOpen, setTerritoryModalOpen] = useState(false);
+  const [deleteModalState, setDeleteModalState] = useState<{ isOpen: boolean; type: 'user' | 'product' | 'territory' | null; id: string | number | null; name: string }>({ isOpen: false, type: null, id: null, name: '' });
 
   // Edit states
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
@@ -50,7 +51,7 @@ export default function App() {
     email: '',
     full_name: '',
     role: 'medical_rep' as Profile['role'],
-    territory_ids: [] as number[],
+    territory_ids: [] as (string | number)[],
     is_active: true
   });
 
@@ -274,13 +275,17 @@ export default function App() {
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = {
+      const payload: any = {
         full_name: userForm.full_name,
         email: userForm.email,
         role: userForm.role,
-        is_active: userForm.is_active,
-        clerk_user_id: editingUser ? editingUser.id : `clerk_prov_${Date.now()}`
+        territory_id: userForm.territory_ids.length > 0 ? userForm.territory_ids[0] : null,
+        is_active: userForm.is_active
       };
+      
+      if (!editingUser) {
+        payload.clerk_user_id = `clerk_prov_${Date.now()}`;
+      }
 
       if (editingUser) {
         const { error } = await supabase.from('profiles').update(payload).eq('id', editingUser.id);
@@ -312,14 +317,8 @@ export default function App() {
     setUserModalOpen(false);
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      try {
-        await supabase.from('profiles').delete().eq('id', id);
-      } catch (_) {}
-      const updated = users.filter(u => u.id !== id);
-      saveUsersState(updated);
-    }
+  const handleDeleteUser = (id: string, name: string) => {
+    setDeleteModalState({ isOpen: true, type: 'user', id, name });
   };
 
   // Actions - Products
@@ -390,14 +389,8 @@ export default function App() {
     setProductModalOpen(false);
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      try {
-        await supabase.from('products').delete().eq('id', id);
-      } catch (_) {}
-      const updated = products.filter(p => p.id !== id);
-      saveProductsState(updated);
-    }
+  const handleDeleteProduct = (id: string, name: string) => {
+    setDeleteModalState({ isOpen: true, type: 'product', id, name });
   };
 
   // Actions - Territories
@@ -456,14 +449,36 @@ export default function App() {
     setTerritoryModalOpen(false);
   };
 
-  const handleDeleteTerritory = async (id: number) => {
-    if (confirm('Are you sure you want to delete this territory?')) {
-      try {
+  const handleDeleteTerritory = (id: number, name: string) => {
+    setDeleteModalState({ isOpen: true, type: 'territory', id, name });
+  };
+
+  const confirmDeletion = async () => {
+    const { type, id } = deleteModalState;
+    if (!type || id === null) return;
+
+    try {
+      if (type === 'user') {
+        await supabase.from('profiles').delete().eq('id', id);
+        const updated = users.filter(u => u.id !== id);
+        saveUsersState(updated);
+      } else if (type === 'product') {
+        await supabase.from('products').delete().eq('id', id);
+        const updated = products.filter(p => p.id !== id);
+        saveProductsState(updated);
+      } else if (type === 'territory') {
         await supabase.from('territories').delete().eq('id', id);
-      } catch (_) {}
-      const updated = territories.filter(t => t.id !== id);
-      saveTerritoriesState(updated);
+        const updated = territories.filter(t => t.id !== id);
+        saveTerritoriesState(updated);
+      }
+    } catch (err) {
+      console.warn("Failed to delete from Supabase, applying local state removal", err);
+      if (type === 'user') saveUsersState(users.filter(u => u.id !== id));
+      if (type === 'product') saveProductsState(products.filter(p => p.id !== id));
+      if (type === 'territory') saveTerritoriesState(territories.filter(t => t.id !== id));
     }
+
+    setDeleteModalState({ isOpen: false, type: null, id: null, name: '' });
   };
 
   // Calculate Metrics
@@ -736,53 +751,116 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Premium Graphical Chart */}
-                      <div style={{ position: 'relative', flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      {/* Premium Graphical Line Chart */}
+                      <div style={{ position: 'relative', flexGrow: 1, display: 'flex', flexDirection: 'column', height: '240px' }}>
                         {/* Background Dashed Grid Lines */}
-                        <div style={{ position: 'absolute', width: '100%', height: 'calc(100% - 30px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 0, paddingBottom: '10px' }}>
+                        <div style={{ position: 'absolute', width: '100%', height: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 0 }}>
                           {[10000, 7500, 5000, 2500, 0].map((val, idx) => (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', width: '100%', height: '20px' }}>
                               <span style={{ width: '45px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>${val}</span>
                               <div style={{ flexGrow: 1, borderTop: idx === 4 ? '1px solid rgba(255,255,255,0.1)' : '1px dashed rgba(255,255,255,0.06)' }} />
                             </div>
                           ))}
                         </div>
 
-                        {/* Chart Bars */}
-                        <div style={{ position: 'relative', zIndex: 1, flexGrow: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '20px 20px 10px 60px', height: '220px' }}>
-                          {[4000, 6500, 3200, 8900, 5400, 7800, 9200].map((val, idx) => {
-                            const heightPercent = (val / 10000) * 100;
-                            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                            return (
-                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '50px', position: 'relative' }}>
-                                {/* Value popup on hover */}
-                                <div style={{
-                                  position: 'absolute',
-                                  top: `calc(${100 - heightPercent}% - 35px)`,
-                                  background: '#0f1524',
-                                  border: '1px solid var(--primary)',
-                                  color: '#fff',
-                                  fontSize: '11px',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontWeight: 700,
-                                  boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
-                                  pointerEvents: 'none'
-                                }}>
-                                  ${val}
-                                </div>
-                                <div style={{
-                                  width: '32px',
-                                  height: `${(heightPercent / 100) * 180}px`,
-                                  background: 'linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%)',
-                                  borderRadius: '8px 8px 0 0',
-                                  boxShadow: '0 4px 15px var(--primary-glow)',
-                                  transition: 'height 0.4s ease'
-                                }} />
-                                <span style={{ fontSize: '12px', marginTop: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{days[idx]}</span>
-                              </div>
-                            );
-                          })}
+                        {/* SVG Drawing Layer */}
+                        <div style={{ position: 'relative', zIndex: 1, flexGrow: 1, paddingLeft: '45px', height: '180px' }}>
+                          <svg viewBox="0 0 600 180" width="100%" height="180" style={{ overflow: 'visible' }}>
+                            <defs>
+                              <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />
+                                <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                              </linearGradient>
+                              <linearGradient id="line-gradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="var(--primary)" />
+                                <stop offset="100%" stopColor="var(--secondary)" />
+                              </linearGradient>
+                              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="var(--primary)" floodOpacity="0.5" />
+                              </filter>
+                            </defs>
+
+                            {/* Vertical helper grid lines */}
+                            {[50, 133.3, 216.6, 300, 383.3, 466.6, 550].map((x, idx) => (
+                              <line key={idx} x1={x} y1="0" x2={x} y2="170" stroke="rgba(255,255,255,0.02)" strokeDasharray="3 3" />
+                            ))}
+
+                            {/* Filled Area Under Line */}
+                            <path 
+                              d="M 50 110 L 133.3 72.5 L 216.6 122 L 300 36.5 L 383.3 89 L 466.6 53 L 550 32 L 550 170 L 50 170 Z" 
+                              fill="url(#area-gradient)" 
+                            />
+
+                            {/* Neon Curved/Segmented Line */}
+                            <path 
+                              d="M 50 110 L 133.3 72.5 L 216.6 122 L 300 36.5 L 383.3 89 L 466.6 53 L 550 32" 
+                              fill="none" 
+                              stroke="url(#line-gradient)" 
+                              strokeWidth="3.5" 
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              filter="url(#glow)"
+                            />
+
+                            {/* Interactive Data Nodes */}
+                            {[
+                              { val: 4000, x: 50, y: 110, day: 'Mon' },
+                              { val: 6500, x: 133.3, y: 72.5, day: 'Tue' },
+                              { val: 3200, x: 216.6, y: 122, day: 'Wed' },
+                              { val: 8900, x: 300, y: 36.5, day: 'Thu' },
+                              { val: 5400, x: 383.3, y: 89, day: 'Fri' },
+                              { val: 7800, x: 466.6, y: 53, day: 'Sat' },
+                              { val: 9200, x: 550, y: 32, day: 'Sun' }
+                            ].map((pt, idx) => (
+                              <g key={idx} className="chart-node" style={{ cursor: 'pointer' }}>
+                                {/* Floating Value Tooltip (Background) */}
+                                <rect 
+                                  x={pt.x - 24} 
+                                  y={pt.y - 28} 
+                                  width="48" 
+                                  height="18" 
+                                  rx="4" 
+                                  fill="#0f1524" 
+                                  stroke="var(--primary)" 
+                                  strokeWidth="1" 
+                                />
+                                <text 
+                                  x={pt.x} 
+                                  y={pt.y - 16} 
+                                  fill="#fff" 
+                                  fontSize="9.5" 
+                                  fontWeight="700" 
+                                  textAnchor="middle"
+                                >
+                                  ${pt.val}
+                                </text>
+
+                                {/* Outer Glowing Ring */}
+                                <circle 
+                                  cx={pt.x} 
+                                  cy={pt.y} 
+                                  r="8" 
+                                  fill="rgba(0, 242, 254, 0.15)" 
+                                  stroke="var(--primary)" 
+                                  strokeWidth="1" 
+                                />
+                                {/* Inner Solid Dot */}
+                                <circle 
+                                  cx={pt.x} 
+                                  cy={pt.y} 
+                                  r="4" 
+                                  fill="#fff" 
+                                />
+                              </g>
+                            ))}
+                          </svg>
+                        </div>
+
+                        {/* X-Axis labels */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '95px', paddingRight: '50px', marginTop: '10px' }}>
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
+                            <span key={idx} style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{day}</span>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -861,7 +939,7 @@ export default function App() {
                                 <button onClick={() => handleOpenUserModal(u)} className="btn-icon-only">
                                   <Edit3 size={15} />
                                 </button>
-                                <button onClick={() => handleDeleteUser(u.id)} className="btn-icon-only text-danger">
+                                <button onClick={() => handleDeleteUser(u.id, u.full_name)} className="btn-icon-only text-danger">
                                   <Trash2 size={15} style={{ color: 'var(--danger)' }} />
                                 </button>
                               </div>
@@ -915,7 +993,7 @@ export default function App() {
                                 <button onClick={() => handleOpenProductModal(p)} className="btn-icon-only">
                                   <Edit3 size={15} />
                                 </button>
-                                <button onClick={() => handleDeleteProduct(p.id)} className="btn-icon-only text-danger">
+                                <button onClick={() => handleDeleteProduct(p.id, p.name)} className="btn-icon-only text-danger">
                                   <Trash2 size={15} style={{ color: 'var(--danger)' }} />
                                 </button>
                               </div>
@@ -963,7 +1041,7 @@ export default function App() {
                                 <button onClick={() => handleOpenTerritoryModal(t)} className="btn-icon-only">
                                   <Edit3 size={15} />
                                 </button>
-                                <button onClick={() => handleDeleteTerritory(t.id)} className="btn-icon-only text-danger">
+                                <button onClick={() => handleDeleteTerritory(t.id, t.name)} className="btn-icon-only text-danger">
                                   <Trash2 size={15} style={{ color: 'var(--danger)' }} />
                                 </button>
                               </div>
@@ -1068,6 +1146,49 @@ export default function App() {
             </div> {/* Closing page-container */}
           </main>
 
+          {/* Custom Delete Confirmation Modal */}
+          {deleteModalState.isOpen && (
+            <div className="modal-backdrop">
+              <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 24px auto',
+                  color: 'var(--danger)',
+                  boxShadow: '0 0 20px rgba(239, 68, 68, 0.2)'
+                }}>
+                  <Trash2 size={32} />
+                </div>
+                <h3 className="modal-title" style={{ marginBottom: '12px', justifyContent: 'center' }}>Confirm Deletion</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', marginBottom: '32px' }}>
+                  Are you sure you want to delete <strong style={{ color: '#fff' }}>{deleteModalState.name}</strong>? 
+                  This action cannot be undone.
+                </p>
+                <div className="modal-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: 0 }}>
+                  <button 
+                    onClick={() => setDeleteModalState({ isOpen: false, type: null, id: null, name: '' })} 
+                    className="btn btn-secondary" 
+                    style={{ justifyContent: 'center' }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={confirmDeletion} 
+                    className="btn btn-primary" 
+                    style={{ background: 'var(--danger)', borderColor: 'var(--danger)', justifyContent: 'center', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)' }}
+                  >
+                    Yes, Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* User Form Modal */}
           {userModalOpen && (
             <div className="modal-backdrop">
@@ -1111,7 +1232,7 @@ export default function App() {
                     <select 
                       className="form-control"
                       value={userForm.territory_ids[0] || ''}
-                      onChange={e => setUserForm({ ...userForm, territory_ids: e.target.value ? [Number(e.target.value)] : [] })}
+                      onChange={e => setUserForm({ ...userForm, territory_ids: e.target.value ? [e.target.value] : [] })}
                     >
                       <option value="">None / Floating</option>
                       {territories.map(t => (

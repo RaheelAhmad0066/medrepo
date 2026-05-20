@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:medrep_pro/features/ai_bot/presentation/widgets/ai_bot_sheet.dart';
 
 class QuickActionFAB extends StatefulWidget {
   const QuickActionFAB({super.key});
@@ -55,11 +56,36 @@ class _QuickActionFABState extends State<QuickActionFAB> with SingleTickerProvid
         if (_isOpen) ...[
           _buildActionButton(
             context,
+            label: 'AI Assistant',
+            icon: Icons.smart_toy,
+            onPressed: () {
+              _toggle();
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const AiBotSheet(),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            context,
             label: 'New DCR Entry',
             icon: Icons.edit_note,
             onPressed: () {
               _toggle();
               context.push('/dcr-daily');
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            context,
+            label: 'Generate Report',
+            icon: Icons.picture_as_pdf,
+            onPressed: () {
+              _toggle();
+              context.push('/reports');
             },
           ),
           const SizedBox(height: 12),

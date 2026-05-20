@@ -26,7 +26,9 @@ import 'package:medrep_pro/features/tour_plans/presentation/views/tour_plan_map_
 
 import 'package:medrep_pro/features/dcr/domain/entities/dcr.dart';
 import 'package:medrep_pro/features/dcr/presentation/views/dcr_list_view.dart';
-import 'package:medrep_pro/features/dcr/presentation/views/dcr_daily_form_view.dart';
+import 'package:medrep_pro/features/dcr/presentation/screens/dcr_daily_screen.dart';
+
+import 'package:medrep_pro/features/reports/presentation/views/reports_dashboard_view.dart';
 
 import 'package:medrep_pro/features/dashboard/presentation/widgets/achievement_meter.dart';
 import 'package:medrep_pro/features/dashboard/presentation/widgets/today_visit_checklist.dart';
@@ -459,7 +461,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/dcr-daily',
-        builder: (context, state) => DcrDailyFormView(initialDcr: state.extra as Dcr?),
+        builder: (context, state) => const DcrDailyScreen(),
       ),
       GoRoute(
         path: '/products',
@@ -488,6 +490,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tour-plan-map',
         builder: (context, state) => TourPlanMapView(tourPlan: state.extra as TourPlan),
+      ),
+      GoRoute(
+        path: '/reports',
+        builder: (context, state) => const ReportsDashboardView(),
       ),
     ],
   );
